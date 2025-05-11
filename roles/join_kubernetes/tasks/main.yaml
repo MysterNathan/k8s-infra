@@ -1,0 +1,24 @@
+---
+- name: Check if node is already part of the cluster
+  command: kubectl get nodes
+  register: node_status
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ groups['master'][0] }}" 
+
+- name: Set fact about node status
+  set_fact:
+    node_already_joined: "{{ inventory_hostname in node_status.stdout }}"
+
+- name: Copy kubeadm join script from control node
+  copy:
+    src: "/home/etna/Quantum_Motors/file/kubeadm/kubeadm_join.sh"
+    dest: /tmp/kubeadm_join.sh
+    mode: '0755'
+  when: not node_already_joined
+
+- name: Execute kubeadm join
+  command: sudo sh /tmp/kubeadm_join.sh
+  register: join_result
+  changed_when: "'This node has joined the cluster' in join_result.stdout"
+  when: not node_already_joined

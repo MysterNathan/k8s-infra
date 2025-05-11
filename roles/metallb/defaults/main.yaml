@@ -1,0 +1,6 @@
+---
+metallb_namespace: "metallb-system"
+# metallb_chart_version: "4.7.2" 
+metallb_ip_range_start: "192.168.100.10"
+metallb_ip_range_end: "192.168.100.10"
+metallb_protocol: "layer2"  
