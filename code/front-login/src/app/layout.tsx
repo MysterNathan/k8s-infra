@@ -1,36 +1,35 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { AuthProvider } from '@/context/AuthContext';
-import MainLayout from '@/components/layout/MainLayout';
 import './globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
+import { ThemeProvider } from '@/components/ThemeProvider';
+import { AuthProvider } from '@/context/AuthContext';
+import Header from '@/components/ui/Header';
+import Footer from '@/components/ui/Footer';
 
 export const metadata: Metadata = {
-  title: 'MonApp',
-  description: 'Application moderne avec React et Next.js',
+  title: 'Mon Portfolio - Système & Réseau',
+  description: 'Portfolio professionnel - Spécialiste Système et Réseau',
 };
 
 export default function RootLayout({
-  children,
-}: {
+                                     children,
+                                   }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
-      <body className={inter.className}>
-        <div className="wave-container">
-          <div className="wave"></div>
-          <div className="wave"></div>
-          <div className="wave"></div>
-        </div>
-        
+      <html lang="fr">
+      <body>
+      <ThemeProvider>
         <AuthProvider>
-          <MainLayout>
-            {children}
-          </MainLayout>
+          <div className="app-container">
+            <Header />
+            <main className="main-content">
+              {children}
+            </main>
+            <Footer />
+          </div>
         </AuthProvider>
+      </ThemeProvider>
       </body>
-    </html>
+      </html>
   );
 }
