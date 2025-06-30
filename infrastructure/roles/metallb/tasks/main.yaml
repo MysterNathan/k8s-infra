@@ -1,0 +1,81 @@
+---
+- name: Vérifier si kubectl est installé
+  command: which kubectl
+  register: kubectl_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Vérifier si Helm est installé
+  command: which helm
+  register: helm_check
+  ignore_errors: yes
+  changed_when: false
+  
+- name: S'assurer que les dépendances sont installées
+  fail:
+    msg: "kubectl et helm sont nécessaires pour exécuter ce rôle"
+  when: kubectl_check.rc != 0 or helm_check.rc != 0
+
+- name: Activer strictARP dans kube-proxy
+  shell: |
+    kubectl get configmap kube-proxy -n kube-system -o yaml | \
+    sed -e "s/strictARP: false/strictARP: true/" | \
+    kubectl apply -f - -n kube-system
+  register: strict_arp_result
+  changed_when: strict_arp_result.rc == 0
+  failed_when: strict_arp_result.rc != 0 and "unchanged" not in strict_arp_result.stderr
+
+- name: Créer le namespace metallb-system s'il n'existe pas
+  kubernetes.core.k8s:
+    name: "{{ metallb_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Ajouter le repo Helm pour MetalLB
+  command: helm repo add metallb https://metallb.github.io/metallb
+  register: add_repo_result
+  changed_when: add_repo_result.rc == 0
+  failed_when: add_repo_result.rc != 0
+
+- name: Mettre à jour les repos Helm
+  command: helm repo update
+  register: update_repo_result
+  changed_when: update_repo_result.rc == 0
+  failed_when: update_repo_result.rc != 0
+
+- name: Créer le fichier values.yaml pour Helm
+  template:
+    src: values.yaml.j2
+    dest: /tmp/metallb-values.yaml
+  register: values_file
+
+- name: Installer MetalLB avec Helm
+  command: helm upgrade --install metallb metallb/metallb -n metallb-system -f /tmp/metallb-values.yaml
+
+- name: Attendre que les pods MetalLB soient prêts
+  shell: kubectl wait --for=condition=Ready pods --all -n {{ metallb_namespace }} --timeout=180s
+  register: wait_pods
+  changed_when: false
+  failed_when: wait_pods.rc != 0
+
+- name: Créer le fichier ConfigMap pour la configuration de l'IP Pool
+  template:
+    src: configmap.yaml.j2
+    dest: /tmp/metallb-ipaddresspool.yaml
+  register: ipaddresspool_file
+
+- name: Appliquer la configuration de l'IP Pool
+  kubernetes.core.k8s:
+    state: present
+    src: /tmp/metallb-ipaddresspool.yaml
+  register: apply_pool
+  
+- name: Nettoyer les fichiers temporaires
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/metallb-values.yaml"
+    - "/tmp/metallb-ipaddresspool.yaml"
+  when: values_file.changed or ipaddresspool_file.changed

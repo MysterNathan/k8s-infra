@@ -1,0 +1,21 @@
+---
+
+githubWebhookServer:
+  enabled: false  # Tu peux l'activer si tu veux une synchronisation des Webhooks GitHub
+
+authSecret:
+  create: true
+  github_token: "<TON_TOKEN_GITHUB>"
+
+# Contrôle de l'image Docker utilisée pour les runners
+image:
+  repository: summerwind/actions-runner
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+metrics:
+  enabled: true
+
+# Webhook registration (déconseillé pour un simple test ou usage perso)
+githubWebhook:
+  enabled: false

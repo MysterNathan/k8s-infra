@@ -1,0 +1,97 @@
+# roles/k8s-backend/tasks/main.yaml
+---
+- name: Vérifier si kubectl est installé
+  command: kubectl version --client
+  register: kubectl_check
+  failed_when: false
+  changed_when: false
+
+- name: Fail si kubectl n'est pas installé
+  fail:
+    msg: "kubectl n'est pas installé ou accessible"
+  when: kubectl_check.rc != 0
+
+- name: Vérifier la connectivité avec le cluster Kubernetes
+  command: kubectl cluster-info
+  register: cluster_check
+  failed_when: cluster_check.rc != 0
+  changed_when: false
+
+- name: Créer le répertoire de travail pour K8s
+  file:
+    path: "{{ k8s_workspace }}"
+    state: directory
+    mode: '0755'
+
+- name: Copier les manifests K8s
+  copy:
+    src: "{{ backend_manifests_source }}"
+    dest: "{{ k8s_workspace }}/k8s-manifests.yaml"
+    mode: '0644'
+  register: manifests_copied
+
+- name: Vérifier si le namespace existe déjà
+  command: kubectl get namespace {{ backend_namespace }}
+  register: namespace_check
+  failed_when: false
+  changed_when: false
+
+- name: Créer le namespace s'il n'existe pas
+  command: kubectl create namespace {{ backend_namespace }}
+  when: namespace_check.rc != 0
+
+- name: Appliquer les manifests K8s
+  command: kubectl apply -f {{ k8s_workspace }}/k8s-manifests.yaml
+  register: kubectl_apply_result
+  changed_when: "'configured' in kubectl_apply_result.stdout or 'created' in kubectl_apply_result.stdout"
+
+- name: Attendre que les pods soient prêts
+  command: kubectl wait --for=condition=ready pod -l app={{ item }} -n {{ backend_namespace }} --timeout=300s
+  loop:
+    - postgres
+    - backend-api
+  register: pods_ready
+  retries: 3
+  delay: 10
+  until: pods_ready.rc == 0
+
+- name: Vérifier le statut des déploiements
+  command: kubectl get deployments -n {{ backend_namespace }}
+  register: deployments_status
+  changed_when: false
+
+- name: Afficher le statut des déploiements
+  debug:
+    msg: "{{ deployments_status.stdout_lines }}"
+
+- name: Vérifier le statut des services
+  command: kubectl get services -n {{ backend_namespace }}
+  register: services_status
+  changed_when: false
+
+- name: Afficher le statut des services
+  debug:
+    msg: "{{ services_status.stdout_lines }}"
+
+- name: Vérifier le statut de l'IngressRoute
+  command: kubectl get ingressroute -n {{ backend_namespace }}
+  register: ingress_status
+  changed_when: false
+
+- name: Afficher le statut de l'IngressRoute
+  debug:
+    msg: "{{ ingress_status.stdout_lines }}"
+
+- name: Récupérer les logs des pods en cas d'erreur
+  block:
+    - name: Obtenir les pods en erreur
+      command: kubectl get pods -n {{ backend_namespace }} --field-selector=status.phase!=Running -o name
+      register: failed_pods
+      changed_when: false
+
+    - name: Afficher les logs des pods en erreur
+      command: kubectl logs {{ item }} -n {{ backend_namespace }} --tail=50
+      loop: "{{ failed_pods.stdout_lines }}"
+      when: failed_pods.stdout_lines | length > 0
+      ignore_errors: true
+  when: pods_ready is failed

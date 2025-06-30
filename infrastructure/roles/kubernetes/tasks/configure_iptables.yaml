@@ -1,0 +1,55 @@
+---
+- name: Load br_netfilter module
+  become: yes
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Ensure br_netfilter module is loaded at boot
+  become: yes
+  lineinfile:
+    path: /etc/modules-load.d/k8s.conf
+    line: br_netfilter
+    create: yes
+
+- name: Check if the values are already set for iptables
+  sysctl:
+    name: net.bridge.bridge-nf-call-iptables
+    value: "1"
+    state: present
+    reload: yes
+
+- name: Check if the values are already set for IPv6
+  sysctl:
+    name: net.bridge.bridge-nf-call-ip6tables
+    value: "1"
+    state: present
+    reload: yes
+
+- name: Apply sysctl parameters immediately
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  with_items:
+    - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+    - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+
+- name: Ensure sysctl parameters are persistent
+  lineinfile:
+    path: /etc/sysctl.conf
+    regexp: '^{{ item.name }}='
+    line: '{{ item.name }}={{ item.value }}'
+    create: yes
+  with_items:
+    - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+    - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+
+- name: Enable IP forwarding
+  become: yes
+  ansible.builtin.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: yes
