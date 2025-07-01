@@ -1,235 +1,100 @@
-# backend/k8s-manifests.yaml
+# backend/k8s/deployment.yaml
+---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: backend
+  name: frontend
+  labels:
+    name: frontend
 
 ---
-# ConfigMap pour la configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: backend-config
-  namespace: backend
+  name: frontend-config
+  namespace: frontend
 data:
-  DB_HOST: "postgres-service"
-  DB_PORT: "5432"
-  DB_NAME: "backend_db"
-  DB_USER: "backend_user"
-  SERVER_PORT: "8080"
-
+  PORT: "80"
+  NEXT_PUBLIC_API_URL: 192.168.1.201
 ---
-# Secret pour les données sensibles
-apiVersion: v1
-kind: Secret
-metadata:
-  name: backend-secrets
-  namespace: backend
-type: Opaque
-data:
-  # backend_pass encodé en base64
-  DB_PASSWORD: YmFja2VuZF9wYXNz
-  # your-jwt-secret-key encodé en base64
-  JWT_SECRET: eW91ci1qd3Qtc2VjcmV0LWtleQ==
-
----
-# PostgreSQL Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postgres
-  namespace: backend
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: postgres
-  template:
-    metadata:
-      labels:
-        app: postgres
-    spec:
-      containers:
-      - name: postgres
-        image: postgres:15
-        ports:
-        - containerPort: 5432
-        env:
-        - name: POSTGRES_DB
-          valueFrom:
-            configMapKeyRef:
-              name: backend-config
-              key: DB_NAME
-        - name: POSTGRES_USER
-          valueFrom:
-            configMapKeyRef:
-              name: backend-config
-              key: DB_USER
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: backend-secrets
-              key: DB_PASSWORD
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
-      volumes:
-      - name: postgres-storage
-        emptyDir: {}
-
----
-# PostgreSQL Service
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres-service
-  namespace: backend
-spec:
-  selector:
-    app: postgres
-  ports:
-  - port: 5432
-    targetPort: 5432
-
----
-# Backend API Deployment
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: backend-api
-  namespace: backend
+  name: frontend-app
+  namespace: frontend
+  labels:
+    app: frontend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: backend-api
+      app: frontend
   template:
     metadata:
       labels:
-        app: backend-api
+        app: frontend
     spec:
       containers:
-      - name: backend-api
-        image: your-registry/backend-api:latest
+      - name: frontend
+        image: 192.168.1.11:5000/front-login-frontend:latest
+        imagePullPolicy: Always
         ports:
-        - containerPort: 8080
+        - containerPort: 80
+          name: http
         env:
-        - name: DB_HOST
+        - name: PORT
           valueFrom:
             configMapKeyRef:
-              name: backend-config
-              key: DB_HOST
-        - name: DB_PORT
+              name: frontend-config
+              key: PORT
+        - name: NEXT_PUBLIC_API_URL
           valueFrom:
             configMapKeyRef:
-              name: backend-config
-              key: DB_PORT
-        - name: DB_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: backend-config
-              key: DB_NAME
-        - name: DB_USER
-          valueFrom:
-            configMapKeyRef:
-              name: backend-config
-              key: DB_USER
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: backend-secrets
-              key: DB_PASSWORD
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: backend-secrets
-              key: JWT_SECRET
-        - name: SERVER_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: backend-config
-              key: SERVER_PORT
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+              name: frontend-config
+              key: NEXT_PUBLIC_API_URL
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
 
 ---
-# Backend API Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-api-service
-  namespace: backend
+  name: frontend-service
+  namespace: frontend
+  labels:
+    app: frontend
 spec:
   selector:
-    app: backend-api
+    app: frontend
   ports:
-  - port: 80
-    targetPort: 8080
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP
+
 
 ---
 # IngressRoute Traefik
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: backend-ingress
-  namespace: backend
+  name: frontend-ingress
+  namespace: frontend
 spec:
   entryPoints:
     - web
     - websecure
   routes:
-  - match: Host(`api.votre-domaine.com`)
+  - match: Host(`mysternathan.freeboxos.fr`) 
     kind: Rule
     services:
-    - name: backend-api-service
+    - name: frontend-service
       port: 80
-    middlewares:
-    - name: backend-cors
-  - match: Host(`api.votre-domaine.com`) && PathPrefix(`/api`)
-    kind: Rule
-    services:
-    - name: backend-api-service
-      port: 80
-    middlewares:
-    - name: backend-cors
   tls:
     certResolver: letsencrypt
-
----
-# Middleware CORS pour Traefik
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: backend-cors
-  namespace: backend
-spec:
-  headers:
-    accessControlAllowMethods:
-      - GET
-      - POST
-      - PUT
-      - DELETE
-      - OPTIONS
-    accessControlAllowOriginList:
-      - "https://votre-frontend.com"
-      - "http://localhost:3000"
-    accessControlAllowHeaders:
-      - "Content-Type"
-      - "Authorization"
-      - "X-Requested-With"
-    accessControlExposeHeaders:
-      - "Content-Length"
-      - "Access-Control-Allow-Origin"
-    accessControlAllowCredentials: true
-    accessControlMaxAge: 100
-    addVaryHeader: true

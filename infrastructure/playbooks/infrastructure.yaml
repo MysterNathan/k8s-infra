@@ -1,15 +1,15 @@
 ---
-- name: Setup Kubernetes
-  hosts: all
-  become: yes
-  roles:
-    - role: '../roles/kubernetes'
+# - name: Setup Kubernetes
+#   hosts: all
+#   become: yes
+#   roles:
+#     - role: '../roles/kubernetes'
 
-- name: Setup Kubernetes Workers
-  hosts: workers
-  become: yes
-  roles:
-    - role: '../roles/join_kubernetes'
+# - name: Setup Kubernetes Workers
+#   hosts: workers
+#   become: yes
+#   roles:
+#     - role: '../roles/join_kubernetes'
 
 
 - name: Setup Kubernetes cluster
@@ -19,6 +19,9 @@
     - role: '../roles/helm'
     - role: '../roles/traefik'
     - role: '../roles/metallb'
+    - role: '../roles/backend'
+    # - role: '../roles/frontend'
+
 
 # - name: Setup Github-Action
 #   hosts: workers

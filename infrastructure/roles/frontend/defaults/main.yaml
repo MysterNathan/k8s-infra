@@ -1,13 +1,7 @@
 # roles/k8s-backend/defaults/main.yaml
 ---
 # Configuration par défaut
-k8s_workspace: "/tmp/k8s-backend-workspace"
-backend_namespace: "backend"
-backend_manifests_source: "backend/k8s-manifests.yaml"
+workspace_path: "/tmp/k8s-frontend-workspace"
+backend_namespace: "frontend"
+backend_manifests_source: "frontend/k8s-manifests.yaml"
 
-# Configuration des images Docker
-backend_image: "your-registry/backend-api:latest"
-postgres_image: "postgres:15"
-
-# Configuration réseau
-backend_domain: "api.votre-domaine.com"

@@ -9,8 +9,11 @@ deployment:
      - "mysternathan.freeboxos.fr"
 
 additionalArguments:
-  - "--api.dashboard=true" 
+  - "--api.dashboard=true"
   - "--providers.kubernetesingress"
+  - "--certificatesresolvers.letsencrypt.acme.httpChallenge.entryPoint=web"
+  - "--certificatesresolvers.letsencrypt.acme.email=fernan_n@etna-alternance.net"
+  - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
 
 ingressRoute:
   dashboard:

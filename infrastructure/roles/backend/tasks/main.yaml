@@ -1,15 +1,15 @@
-# ansible/roles/frontend-deploy/tasks/main.yaml
+# ansible/roles/backend-deploy/tasks/main.yaml
 ---
-- name: Créer le workspace frontend
+- name: Créer le workspace backend
   file:
-    path: "{{ workspace_path }}/frontend"
+    path: "{{ workspace_path }}/backend"
     state: directory
     mode: '0755'
   tags: ['setup']
 
 - name: Créer le sous-dossier k8s
   file:
-    path: "{{ workspace_path }}/frontend/k8s"
+    path: "{{ workspace_path }}/backend/k8s"
     state: directory
     mode: '0755'
   tags: ['setup']
@@ -43,16 +43,28 @@
 - name: Copier le fichier de déploiement Kubernetes
   copy:
     src: "deployment.yaml"
-    dest: "{{ workspace_path }}/frontend/k8s/deployment.yaml"
+    dest: "{{ workspace_path }}/backend/k8s/deployment.yaml"
     mode: '0644'
   register: k8s_manifest
   tags: ['deploy']
 
+- name: Vérifier si Traefik CRDs sont installés
+  command: kubectl get crd ingressroutes.traefik.containo.us
+  register: traefik_crd_check
+  failed_when: false
+  changed_when: false
+  tags: ['check']
+
+- name: Avertir si Traefik CRDs ne sont pas installés
+  debug:
+    msg: "Attention: Les CRDs Traefik ne semblent pas être installés. L'IngressRoute pourrait échouer."
+  when: traefik_crd_check.rc != 0
+  tags: ['check']
 
 - name: Appliquer les manifestes Kubernetes
   kubernetes.core.k8s:
     state: present
-    src: "{{ workspace_path }}/frontend/k8s/deployment.yaml"
+    src: "{{ workspace_path }}/backend/k8s/deployment.yaml"
     wait: true
     wait_condition:
       type: Available
@@ -65,8 +77,8 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: Deployment
-    name: frontend-app
-    namespace: frontend
+    name: backend-app
+    namespace: backend
     wait_condition:
       type: Available
       status: "True"
