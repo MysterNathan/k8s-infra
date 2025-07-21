@@ -1,0 +1,7 @@
+registry_namespace: docker-registry
+registry_name: portfolio-registry
+registry_port: 5000
+registry_storage_size: 5Gi
+registry_image: registry:2.8.1
+registry_host: 192.168.1.193
+registry_node_port: 30500

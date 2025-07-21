@@ -1,0 +1,60 @@
+# registry-config-daemonset.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docker-registry-config
+  namespace: docker-registry
+data:
+  daemon.json: |
+    {
+      "insecure-registries": ["192.168.1.193:30500"],
+      "log-driver": "json-file",
+      "log-opts": {
+        "max-size": "100m"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: docker-config-updater
+  namespace: docker-registry
+spec:
+  selector:
+    matchLabels:
+      name: docker-config-updater
+  template:
+    metadata:
+      labels:
+        name: docker-config-updater
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: config-updater
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache curl
+          cp /config/daemon.json /host/etc/docker/daemon.json
+          # Redémarrer Docker via systemd
+          chroot /host systemctl restart docker
+          chroot /host systemctl restart kubelet
+          # Garder le conteneur vivant
+          sleep infinity
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: host-fs
+          mountPath: /host
+        securityContext:
+          privileged: true
+      volumes:
+      - name: config
+        configMap:
+          name: docker-registry-config
+      - name: host-fs
+        hostPath:
+          path: /

@@ -1,0 +1,76 @@
+---
+- name: Créer le namespace docker-registry s'il n'existe pas
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: docker-registry
+    state: present
+
+- name: Créer un fichier de déploiement pour la registry
+  copy:
+    dest: /tmp/registry-deployment.yaml
+    content: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: docker-registry
+        namespace: docker-registry
+      spec:
+        selector:
+          app: docker-registry
+        ports:
+          - protocol: TCP
+            port: 5000
+            targetPort: 5000
+        type: NodePort
+      ---
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: docker-registry
+        namespace: docker-registry
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: docker-registry
+        template:
+          metadata:
+            labels:
+              app: docker-registry
+          spec:
+            containers:
+              - name: registry
+                image: registry:2
+                ports:
+                  - containerPort: 5000
+                volumeMounts:
+                  - name: registry-storage
+                    mountPath: /var/lib/registry
+            volumes:
+              - name: registry-storage
+                emptyDir: {}
+
+- name: Appliquer le déploiement de la registry
+  kubernetes.core.k8s:
+    src: /tmp/registry-deployment.yaml
+    state: present
+
+- name: Configurer le fichier daemon.json pour activer l'insecure registry
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "insecure-registries" : ["192.168.1.10:30000"]
+      }
+
+
+
+- name: Vérifier le NodePort attribué à la registry
+  shell: |
+    kubectl get svc docker-registry -n docker-registry -o jsonpath='{.spec.ports[0].nodePort}'
+  register: registry_nodeport
+
+- name: Afficher le port d'accès à la registry
+  debug:
+    msg: "La registry est disponible sur http://192.168.1.10:{{ registry_nodeport.stdout }}"
