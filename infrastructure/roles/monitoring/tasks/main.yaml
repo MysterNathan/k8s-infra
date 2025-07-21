@@ -1,0 +1,545 @@
+# roles/monitoring/tasks/main.yml
+---
+- name: Create monitoring namespace
+  kubernetes.core.k8s:
+    name: monitoring
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Create prometheus config
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: prometheus-config
+        namespace: monitoring
+      data:
+        prometheus.yml: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            - job_name: 'node-exporter'
+              static_configs:
+                - targets: ['node-exporter-service:9100']
+              scrape_interval: 15s
+
+            - job_name: 'kubernetes-pods'
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - monitoring
+                      - default
+                      - traefik
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: true
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  regex: (.+)
+                - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+                  action: replace
+                  regex: ([^:]+)(?::\d+)?;(\d+)
+                  replacement: $1:$2
+                  target_label: __address__
+                - source_labels: [__meta_kubernetes_pod_name]
+                  action: replace
+                  target_label: pod_name
+
+            - job_name: 'kubernetes-services'
+              kubernetes_sd_configs:
+                - role: service
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: true
+                - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  regex: (.+)
+                - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+                  action: replace
+                  regex: ([^:]+)(?::\d+)?;(\d+)
+                  replacement: $1:$2
+                  target_label: __address__
+
+- name: Create prometheus service account
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: prometheus
+        namespace: monitoring
+
+- name: Create prometheus cluster role
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: prometheus
+      rules:
+        - apiGroups: [""]
+          resources:
+            - nodes
+            - nodes/proxy
+            - services
+            - endpoints
+            - pods
+            - namespaces
+          verbs: ["get", "list", "watch"]
+        - apiGroups: ["extensions", "networking.k8s.io"]
+          resources:
+            - ingresses
+          verbs: ["get", "list", "watch"]
+        - nonResourceURLs: ["/metrics"]
+          verbs: ["get"]
+
+- name: Create prometheus cluster role binding
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: prometheus
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: prometheus
+      subjects:
+        - kind: ServiceAccount
+          name: prometheus
+          namespace: monitoring
+
+
+- name: Deploy prometheus
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: prometheus
+        namespace: monitoring
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: prometheus
+        template:
+          metadata:
+            labels:
+              app: prometheus
+          spec:
+            serviceAccountName: prometheus  # Ajout du service account
+            containers:
+              - name: prometheus
+                image: prom/prometheus:latest
+                ports:
+                  - containerPort: 9090
+                volumeMounts:
+                  - name: config
+                    mountPath: /etc/prometheus
+                  - name: storage
+                    mountPath: /prometheus
+                args:
+                  - '--config.file=/etc/prometheus/prometheus.yml'
+                  - '--storage.tsdb.path=/prometheus'
+                  - '--web.console.libraries=/etc/prometheus/console_libraries'
+                  - '--web.console.templates=/etc/prometheus/consoles'
+                  - '--storage.tsdb.retention.time=200h'
+                  - '--web.enable-lifecycle'
+                  - '--web.route-prefix=/prometheus'
+                  - '--web.external-url=https://{{ domain_name }}/prometheus'
+                livenessProbe:
+                  httpGet:
+                    path: /prometheus/-/healthy
+                    port: 9090
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                readinessProbe:
+                  httpGet:
+                    path: /prometheus/-/ready
+                    port: 9090
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+            volumes:
+              - name: config
+                configMap:
+                  name: prometheus-config
+              - name: storage
+                emptyDir: {}
+
+- name: Create prometheus service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: prometheus-service
+        namespace: monitoring
+      spec:
+        selector:
+          app: prometheus
+        ports:
+          - port: 9090
+            targetPort: 9090
+
+- name: Create prometheus ingress route
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: traefik.io/v1alpha1
+      kind: IngressRoute
+      metadata:
+        name: prometheus-ingress
+        namespace: monitoring
+      spec:
+        entryPoints:
+          - websecure
+        routes:
+          - match: Host(`{{ domain_name }}`) && PathPrefix(`/prometheus`)  
+            kind: Rule
+            services:
+              - name: prometheus-service
+                port: 9090
+        tls:
+          certResolver: letsencrypt
+
+- name: Create grafana config
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-config
+        namespace: monitoring
+      data:
+        grafana.ini: |
+          [server]
+          http_port = 3000
+          root_url = https://{{ domain_name }}/grafana/
+          serve_from_sub_path = true
+          
+          [security]
+          admin_user = admin
+          admin_password = {{ grafana_admin_password }}
+          
+          [auth.anonymous]
+          enabled = false
+          
+          [users]
+          allow_sign_up = false
+          
+          [log]
+          mode = console
+          level = info
+
+- name: Create grafana datasource config
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-datasources
+        namespace: monitoring
+      data:
+        datasources.yaml: |
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://prometheus-service:9090/prometheus
+              isDefault: true
+              editable: true
+              jsonData:
+                timeInterval: 15s
+                httpMethod: GET
+
+- name: Create grafana dashboard config
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-dashboard-providers
+        namespace: monitoring
+      data:
+        dashboards.yaml: |
+          apiVersion: 1
+          providers:
+            - name: 'default'
+              orgId: 1
+              folder: ''
+              type: file
+              disableDeletion: false
+              updateIntervalSeconds: 10
+              allowUiUpdates: true
+              options:
+                path: /var/lib/grafana/dashboards
+
+- name: Create basic node exporter dashboard
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-dashboard-node-exporter
+        namespace: monitoring
+      data:
+        node-exporter.json: |
+          {
+            "dashboard": {
+              "id": null,
+              "title": "Node Exporter Metrics",
+              "tags": ["node-exporter"],
+              "timezone": "browser",
+              "panels": [
+                {
+                  "id": 1,
+                  "title": "CPU Usage",
+                  "type": "stat",
+                  "targets": [
+                    {
+                      "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+                      "legendFormat": "CPU Usage %"
+                    }
+                  ],
+                  "fieldConfig": {
+                    "defaults": {
+                      "unit": "percent"
+                    }
+                  },
+                  "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+                },
+                {
+                  "id": 2,
+                  "title": "Memory Usage",
+                  "type": "stat",
+                  "targets": [
+                    {
+                      "expr": "((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes) * 100",
+                      "legendFormat": "Memory Usage %"
+                    }
+                  ],
+                  "fieldConfig": {
+                    "defaults": {
+                      "unit": "percent"
+                    }
+                  },
+                  "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+                },
+                {
+                  "id": 3,
+                  "title": "Disk Usage",
+                  "type": "graph",
+                  "targets": [
+                    {
+                      "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100)",
+                      "legendFormat": "Root Disk Usage %"
+                    }
+                  ],
+                  "yAxes": [
+                    {
+                      "unit": "percent",
+                      "max": 100,
+                      "min": 0
+                    }
+                  ],
+                  "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+                }
+              ],
+              "time": {
+                "from": "now-1h",
+                "to": "now"
+              },
+              "refresh": "5s"
+            }
+          }
+
+- name: Deploy grafana
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: grafana
+        namespace: monitoring
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: grafana
+        template:
+          metadata:
+            labels:
+              app: grafana
+          spec:
+            securityContext:
+              runAsUser: 472
+              runAsGroup: 472
+              fsGroup: 472
+            containers:
+              - name: grafana
+                image: grafana/grafana:latest
+                ports:
+                  - containerPort: 3000
+                env:
+                  - name: GF_SECURITY_ADMIN_PASSWORD
+                    value: "{{ grafana_admin_password }}"
+                  - name: GF_INSTALL_PLUGINS
+                    value: "grafana-clock-panel,grafana-simple-json-datasource"
+                volumeMounts:
+                  - name: grafana-config
+                    mountPath: /etc/grafana
+                  - name: grafana-datasources
+                    mountPath: /etc/grafana/provisioning/datasources
+                  - name: grafana-dashboard-providers
+                    mountPath: /etc/grafana/provisioning/dashboards
+                  - name: grafana-dashboard-node-exporter
+                    mountPath: /var/lib/grafana/dashboards
+                  - name: grafana-storage
+                    mountPath: /var/lib/grafana
+                livenessProbe:
+                  httpGet:
+                    path: /grafana/api/health
+                    port: 3000
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                readinessProbe:
+                  httpGet:
+                    path: /grafana/api/health
+                    port: 3000
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+            volumes:
+              - name: grafana-config
+                configMap:
+                  name: grafana-config
+              - name: grafana-datasources
+                configMap:
+                  name: grafana-datasources
+              - name: grafana-dashboard-providers
+                configMap:
+                  name: grafana-dashboard-providers
+              - name: grafana-dashboard-node-exporter
+                configMap:
+                  name: grafana-dashboard-node-exporter
+              - name: grafana-storage
+                emptyDir: {}
+
+- name: Create grafana service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: grafana-service
+        namespace: monitoring
+      spec:
+        selector:
+          app: grafana
+        ports:
+          - port: 3000
+            targetPort: 3000
+        type: ClusterIP
+
+- name: Create grafana ingress route
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: traefik.io/v1alpha1
+      kind: IngressRoute
+      metadata:
+        name: grafana-ingress
+        namespace: monitoring
+      spec:
+        entryPoints:
+          - websecure
+        routes:
+          - match: Host(`{{ domain_name }}`) && PathPrefix(`/grafana`)
+            kind: Rule
+            services:
+              - name: grafana-service
+                port: 3000
+        tls:
+          certResolver: letsencrypt
+
+- name: Deploy node exporter
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata:
+        name: node-exporter
+        namespace: monitoring
+      spec:
+        selector:
+          matchLabels:
+            app: node-exporter
+        template:
+          metadata:
+            labels:
+              app: node-exporter
+            annotations:
+              prometheus.io/scrape: 'true'
+              prometheus.io/port: '9100'
+              prometheus.io/path: '/metrics'
+          spec:
+            hostNetwork: true
+            hostPID: true
+            containers:
+              - name: node-exporter
+                image: prom/node-exporter:latest
+                args:
+                  - '--path.procfs=/host/proc'
+                  - '--path.sysfs=/host/sys'
+                  - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($|/)'
+                ports:
+                  - containerPort: 9100
+                    hostPort: 9100
+                volumeMounts:
+                  - name: proc
+                    mountPath: /host/proc
+                    readOnly: true
+                  - name: sys
+                    mountPath: /host/sys
+                    readOnly: true
+                  - name: root
+                    mountPath: /rootfs
+                    readOnly: true
+            volumes:
+              - name: proc
+                hostPath:
+                  path: /proc
+              - name: sys
+                hostPath:
+                  path: /sys
+              - name: root
+                hostPath:
+                  path: /
+
+- name: Create node exporter service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: node-exporter-service
+        namespace: monitoring
+        annotations:
+          prometheus.io/scrape: 'true'
+          prometheus.io/port: '9100'
+      spec:
+        selector:
+          app: node-exporter
+        ports:
+          - port: 9100
+            targetPort: 9100

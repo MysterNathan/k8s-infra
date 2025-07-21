@@ -1,0 +1,7 @@
+# roles/monitoring/defaults/main.yml
+---
+# Domain name for ingress routes
+domain_name: "mysternathan.freeboxos.fr"
+
+# Grafana admin password
+grafana_admin_password: "admin"
