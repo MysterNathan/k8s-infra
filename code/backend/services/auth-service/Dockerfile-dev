@@ -1,0 +1,14 @@
+# backend/services/auth-service/Dockerfile-dev
+FROM golang:1.24.5-alpine3.22
+
+# Installer les outils de base
+RUN apk add --no-cache git curl
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Exposer le port
+EXPOSE 8080
+
+# Commande pour lancer Go en mode dev avec hot reload natif
+CMD ["sh", "-c", "go mod download && go run ./cmd/server/main.go"]

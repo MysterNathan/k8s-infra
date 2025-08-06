@@ -1,0 +1,18 @@
+# frontend/docker/Dockerfile-dev
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Installer les dépendances
+COPY package*.json ./
+RUN npm install
+
+# Copier tout le reste (optionnel en dev si tu montes le volume)
+COPY . .
+
+# Exposer le port par défaut de Next.js dev
+EXPOSE 3000
+
+# Démarrer le serveur de dev sur 0.0.0.0
+CMD ["npx", "next", "dev", "-H", "0.0.0.0"]
+

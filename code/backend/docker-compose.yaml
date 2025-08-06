@@ -1,29 +1,80 @@
+# docker-compose.auth.yml
+
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
+  # Base de données
+  auth-db:
+    image: postgres:15-alpine
+    container_name: auth-db
+    restart: unless-stopped
+    env_file:
+      - services/auth-service/.env
     environment:
-      POSTGRES_DB: portfolio_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${DB_NAME:-auth_db}
+      POSTGRES_USER: ${DB_USER:-auth_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-auth_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - auth_db_data:/var/lib/postgresql/data
     networks:
-      - portfolio_network
+      - auth-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-auth_user} -d ${DB_NAME:-auth_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  adminer:
-    image: adminer
+  # Service d'authentification
+  auth-service:
+    build:
+      context: services/auth-service
+      dockerfile: Dockerfile-dev
+    container_name: auth-service
+    restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "8081:8081"
+    volumes:
+      - ./services/auth-service:/app
+    environment:
+      # Base de données
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-auth_db}
+      DB_USER: ${DB_USER:-auth_user}
+      DB_PASSWORD: ${DB_PASSWORD:-auth_password}
+      DB_SSLMODE: disable
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRY: ${JWT_EXPIRY:-24h}
+
+      # Application
+      GIN_MODE: ${GIN_MODE:-release}
+      PORT: 8080
+
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+    depends_on:
+      auth-db:
+        condition: service_healthy
     networks:
-      - portfolio_network
+      - auth-network
+
+#  registry:
+#    image: registry:2
+#    restart: always
+#    ports:
+#      - "5000:5000"
+#    volumes:
+#      - ./data:/var/lib/registry
 
 volumes:
-  postgres_data:
+  auth_db_data:
+    driver: local
 
 networks:
-  portfolio_network:
+  auth-network:
     driver: bridge
