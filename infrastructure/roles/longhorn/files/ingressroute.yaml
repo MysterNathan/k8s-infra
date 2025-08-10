@@ -1,0 +1,31 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: longhorn-dashboard
+  namespace: longhorn-system
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`mysternathan.freeboxos.fr`) && (PathPrefix(`/longhorn`) || Path(`/longhorn`))
+      kind: Rule
+      middlewares:
+        - name: strip-longhorn-prefix
+          namespace: longhorn-system
+        - name: longhorn-auth
+          namespace: longhorn-system
+      services:
+        - name: longhorn-frontend
+          port: 80
+  tls:
+    certResolver: letsencrypt
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-longhorn-prefix
+  namespace: longhorn-system
+spec:
+  stripPrefix:
+    prefixes:
+      - "/longhorn"

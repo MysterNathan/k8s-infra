@@ -1,0 +1,8 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: zalando-postgres-op-auth
+  namespace: zalando-postgres-op
+spec:
+  basicAuth:
+    secret: zalando-postgres-op-auth

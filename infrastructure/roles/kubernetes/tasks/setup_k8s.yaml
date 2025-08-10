@@ -5,7 +5,7 @@
   register: kubeadm_initialized
 
 - name: Initialize the Kubernetes cluster
-  command: sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+  command: sudo kubeadm init
   args:
     creates: /etc/kubernetes/admin.conf
   when: not kubeadm_initialized.stat.exists

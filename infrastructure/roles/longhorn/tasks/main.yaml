@@ -1,0 +1,141 @@
+- name: Créer le namespace longhorn-system s'il n'existe pas
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: longhorn-system
+    state: present
+
+- name: Installer les paquets nécessaires pour longhorn sur tous les nœuds
+  apt:
+    name:
+      - open-iscsi
+      - nfs-common
+      - util-linux
+      - curl
+      - cryptsetup
+      - jq
+    state: present
+    update_cache: yes
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  become: yes
+
+- name: Activer iscsid sur tous les nœuds
+  systemd:
+    name: iscsid
+    state: started
+    enabled: yes
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  become: yes
+
+- name: Activer open-iscsi sur tous les nœuds (après iscsid)
+  systemd:
+    name: open-iscsi
+    state: started
+    enabled: yes
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  become: yes
+  ignore_errors: yes
+
+- name: Redémarrer les services iscsi dans le bon ordre sur tous les nœuds
+  systemd:
+    name: "{{ service }}"
+    state: restarted
+  delegate_to: "{{ item[0] }}"
+  loop: "{{ groups['all'] | product(['iscsid', 'open-iscsi']) | list }}"
+  vars:
+    service: "{{ item[1] }}"
+  become: yes
+  ignore_errors: yes
+
+- name: Attendre que les services se stabilisent
+  wait_for:
+    timeout: 10
+  delegate_to: localhost
+
+- name: Charger les modules kernel nécessaires sur tous les nœuds
+  modprobe:
+    name: "{{ item[1] }}"
+    state: present
+  delegate_to: "{{ item[0] }}"
+  loop: "{{ groups['all'] | product(['iscsi_tcp', 'target_core_mod']) | list }}"
+  ignore_errors: yes
+  become: yes
+
+- name: Ajouter les modules au démarrage automatique sur tous les nœuds
+  lineinfile:
+    path: /etc/modules
+    line: "{{ item[1] }}"
+    create: yes
+  delegate_to: "{{ item[0] }}"
+  loop: "{{ groups['all'] | product(['iscsi_tcp', 'target_core_mod']) | list }}"
+  become: yes
+
+- name: Créer le répertoire de données longhorn sur tous les nœuds
+  file:
+    path: /var/lib/longhorn
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  become: yes
+
+- name: Vérifier que iscsid est actif sur tous les nœuds
+  command: systemctl is-active iscsid
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  register: iscsid_status
+  failed_when: iscsid_status.rc != 0
+  become: yes
+
+- name: Vérifier l'état d'open-iscsi (pour information seulement)
+  command: systemctl is-active open-iscsi
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  register: open_iscsi_status
+  ignore_errors: yes
+  become: yes
+
+- name: Afficher l'état des services iscsi
+  debug:
+    msg: "iscsid: {{ iscsid_status.results | map(attribute='stdout') | list }}, open-iscsi: {{ open_iscsi_status.results | map(attribute='stdout') | list }}"
+
+- name: Ajouter le repository longhorn
+  command: helm repo add longhorn https://charts.longhorn.io
+
+- name: Mettre a jour le repository longhorn
+  command: helm repo update
+
+- name: Installer longhorn
+  command: helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system
+
+- name: Afficher les pods longhorn  
+  command: kubectl -n longhorn-system get pod
+
+- name: Copier le manifest auth-secret de longhorn 
+  copy:
+    src: '{{ role_path }}/files/auth-secret.yaml'
+    dest: /tmp/auth-secret.yaml
+
+- name: Apliquer le manifest auth-secret de longhorn
+  command: kubectl apply -f /tmp/auth-secret.yaml
+
+- name: Copier le manifest auth-middleware de longhorn 
+  copy:
+    src: '{{ role_path }}/files/auth-middleware.yaml'
+    dest: /tmp/auth-middleware.yaml
+
+- name: Apliquer le manifest auth-middleware de longhorn
+  command: kubectl apply -f /tmp/auth-middleware.yaml
+  
+- name: Copier le manifest de l'ingressroute longhorn
+  copy:
+    src: ingressroute.yaml
+    dest: /tmp/longhorningressroute.yaml
+
+- name: Créer l'ingressroute longhorn
+  command: kubectl apply -f /tmp/longhorningressroute.yaml

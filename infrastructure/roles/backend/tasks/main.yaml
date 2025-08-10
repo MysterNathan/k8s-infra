@@ -1,134 +1,57 @@
-# ansible/roles/backend-deploy/tasks/main.yaml
 ---
 - name: Créer le workspace backend
   file:
     path: "{{ workspace_path }}/backend"
     state: directory
     mode: '0755'
-  tags: ['setup']
 
-- name: Créer le sous-dossier k8s
-  file:
-    path: "{{ workspace_path }}/backend/k8s"
-    state: directory
-    mode: '0755'
-  tags: ['setup']
-
-- name: Vérifier si kubectl est installé
-  command: kubectl version --client
-  register: kubectl_check
-  failed_when: false
-  changed_when: false
-  tags: ['check']
-
-- name: Échouer si kubectl n'est pas installé
-  fail:
-    msg: "kubectl n'est pas installé ou accessible"
-  when: kubectl_check.rc != 0
-  tags: ['check']
-
-- name: Vérifier la connectivité au cluster Kubernetes
-  command: kubectl cluster-info
-  register: k8s_check
-  failed_when: false
-  changed_when: false
-  tags: ['check']
-
-- name: Échouer si le cluster Kubernetes n'est pas accessible
-  fail:
-    msg: "Impossible de se connecter au cluster Kubernetes"
-  when: k8s_check.rc != 0
-  tags: ['check']
-
-- name: Copier le fichier de déploiement Kubernetes
-  copy:
-    src: "deployment.yaml"
-    dest: "{{ workspace_path }}/backend/k8s/deployment.yaml"
-    mode: '0644'
-  register: k8s_manifest
-  tags: ['deploy']
-
-- name: Vérifier si Traefik CRDs sont installés
-  command: kubectl get crd ingressroutes.traefik.containo.us
-  register: traefik_crd_check
-  failed_when: false
-  changed_when: false
-  tags: ['check']
-
-- name: Avertir si Traefik CRDs ne sont pas installés
-  debug:
-    msg: "Attention: Les CRDs Traefik ne semblent pas être installés. L'IngressRoute pourrait échouer."
-  when: traefik_crd_check.rc != 0
-  tags: ['check']
-
-- name: Appliquer les manifestes Kubernetes
+- name: Créer le namespace backend s'il n'existe pas
   kubernetes.core.k8s:
     state: present
-    src: "{{ workspace_path }}/backend/k8s/deployment.yaml"
-    wait: true
-    wait_condition:
-      type: Available
-      status: "True"
-    wait_timeout: 300
-  register: k8s_deploy
-  tags: ['deploy']
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: backend
 
-- name: Attendre que les pods soient prêts
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: Deployment
-    name: backend-app
-    namespace: backend
-    wait_condition:
-      type: Available
-      status: "True"
-    wait_timeout: 300
-  tags: ['deploy']
+- name: Copy postgres Manifest
+  copy:
+    src: "postgres.yaml"
+    dest: "{{ workspace_path }}/backend/postgres.yaml"
 
-- name: Vérifier le statut des pods
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Pod
-    namespace: backend
-    label_selectors:
-      - app=backend
-  register: backend_pods
-  tags: ['status']
+- name: Copy configmap Manifest
+  copy:
+    src: "configmap.yaml"
+    dest: "{{ workspace_path }}/backend/configmap.yaml"
 
-- name: Afficher l'état des pods
-  debug:
-    msg: |
-      Pods backend déployés:
-      {% for pod in backend_pods.resources %}
-      - {{ pod.metadata.name }}: {{ pod.status.phase }}
-      {% endfor %}
-  tags: ['status']
+- name: Copy deployment Manifest
+  copy:
+    src: "deployment.yaml"
+    dest: "{{ workspace_path }}/backend/deployment.yaml"
 
-- name: Obtenir les informations du service
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Service
-    name: backend-service
-    namespace: backend
-  register: backend_service
-  tags: ['status']
+- name: Copy IngressRoute Manifest
+  copy:
+    src: "ingressroute.yaml"
+    dest: "{{ workspace_path }}/backend/ingressroute.yaml"
 
-- name: Afficher les informations de déploiement
-  debug:
-    msg: |
-      🚀 Déploiement terminé avec succès !
-      
-      📊 Informations:
-      - Namespace: backend
-      - Service: backend-service
-      - Port: {{ backend_service.resources[0].spec.ports[0].port }}
-      - Replicas: 2
-      
-      🌐 Accès:
-      - Via Traefik: https://192.168.1.201/
-      
-      📋 Commandes utiles:
-      - kubectl get pods -n backend
-      - kubectl logs -n backend -l app=backend
-      - kubectl get svc -n backend
-  tags: ['status']
+
+- name: Déployer PostgreSQL d'abord
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/backend/postgres.yaml"
+
+- name: Déployer le configmap
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/backend/configmap.yaml"
+
+- name: Déployer le deployment
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/backend/deployment.yaml"
+    
+- name: Déployer l'ingressroute
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/backend/ingressroute.yaml"
+
+- name: Supprimer le workspace backend
+  file:
+    path: "{{ workspace_path }}/backend"
+    state: absent

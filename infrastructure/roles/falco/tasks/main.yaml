@@ -1,0 +1,27 @@
+- name: "Ajouter le repo Helm pour Falco"
+  command: helm repo add falcosecurity https://falcosecurity.github.io/charts
+
+- name: "Mettre à jour les repos Helm"
+  command: helm repo update
+
+#- name: "Installer falco"
+#  command: >
+#    helm upgrade --install falco
+#    --namespace falco
+#    --create-namespace
+#    --set tty=true
+#    falcosecurity/falco
+
+- name: "Créer le dossier des règles personnalisées de Falco"
+  file:
+    path: /etc/falco/rules.d
+    state: directory
+    mode: '0755'
+
+- name: "Copier le manifest ingressroute"
+  copy:
+    src: ingressroute.yaml
+    dest: "/tmp/ingressroute.yaml"
+
+- name: "Appliquer le manifest ingressroute"
+  command: "kubectl apply -f /tmp/ingressroute.yaml"

@@ -49,17 +49,12 @@
   tags: ['deploy']
 
 
-- name: Appliquer les manifestes Kubernetes
-  kubernetes.core.k8s:
-    state: present
-    src: "{{ workspace_path }}/frontend/k8s/deployment.yaml"
-    wait: true
-    wait_condition:
-      type: Available
-      status: "True"
-    wait_timeout: 300
+- name: Appliquer les manifestes Kubernetes avec kubectl
+  command: kubectl apply -f {{ workspace_path }}/frontend/k8s/deployment.yaml
   register: k8s_deploy
+  changed_when: "'configured' in k8s_deploy.stdout or 'created' in k8s_deploy.stdout"
   tags: ['deploy']
+
 
 - name: Attendre que les pods soient prêts
   kubernetes.core.k8s_info:
@@ -109,7 +104,6 @@
       📊 Informations:
       - Namespace: backend
       - Service: backend-service
-      - Port: {{ backend_service.resources[0].spec.ports[0].port }}
       - Replicas: 2
       
       🌐 Accès:

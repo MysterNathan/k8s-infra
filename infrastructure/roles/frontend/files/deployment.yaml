@@ -15,7 +15,7 @@ metadata:
   namespace: frontend
 data:
   PORT: "80"
-  NEXT_PUBLIC_API_URL: 192.168.1.201
+  NEXT_PUBLIC_API_URL: "mysternathan.freeboxos.fr"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -24,8 +24,12 @@ metadata:
   namespace: frontend
   labels:
     app: frontend
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8080'  
+    prometheus.io/path: '/metrics'  
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -36,7 +40,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: 192.168.1.11:5000/front-login-frontend:latest
+        image: 192.168.1.193:31498/front-login-frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -91,10 +95,105 @@ spec:
     - web
     - websecure
   routes:
-  - match: Host(`mysternathan.freeboxos.fr`) 
+  - match: Host(`mysternathan.freeboxos.fr`) && PathPrefix(`/`)  
     kind: Rule
     services:
     - name: frontend-service
       port: 80
   tls:
     certResolver: letsencrypt
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-carolina
+  namespace: frontend
+  labels:
+    app: frontend-carolina
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8080'  
+    prometheus.io/path: '/metrics'  
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-carolina
+  template:
+    metadata:
+      labels:
+        app: frontend-carolina
+    spec:
+      containers:
+      - name: frontend-carolina
+        image: 192.168.1.193:31498/front-carolina:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: PORT
+        - name: NEXT_PUBLIC_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_API_URL
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-carolina-service
+  namespace: frontend
+  labels:
+    app: frontend-carolina
+spec:
+  selector:
+    app: frontend-carolina
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP
+---
+# IngressRoute Traefik
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: frontend-ingress-carolina
+  namespace: frontend
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - match: Host(`mysternathan.freeboxos.fr`) && PathPrefix(`/carolina`)  
+    kind: Rule
+    services:
+    - name: frontend-carolina-service
+      port: 80
+    middlewares:
+    - name: strip-carolina-prefix
+  tls:
+    certResolver: letsencrypt
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-carolina-prefix
+  namespace: frontend
+spec:
+  stripPrefix:
+    prefixes:
+      - "/carolina"

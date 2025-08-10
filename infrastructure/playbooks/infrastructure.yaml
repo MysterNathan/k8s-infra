@@ -16,12 +16,18 @@
   hosts: masters
   become: yes
   roles: 
-    - role: '../roles/helm'
-    - role: '../roles/traefik'
-    - role: '../roles/metallb'
-    - role: '../roles/backend'
+    # - role: '../roles/helm'
+    # - role: '../roles/traefik'
+    # - role: '../roles/zalando-postgres-op'
+    # - role: '../roles/metallb'
+    # - role: '../roles/longhorn'
+    # - role: '../roles/falco'
+    # - role: '../roles/docker-registry'
+    # - role: '../roles/monitoring'
     # - role: '../roles/frontend'
+    - role: '../roles/backend'
 
+    
 
 # - name: Setup Github-Action
 #   hosts: workers

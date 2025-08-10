@@ -7,6 +7,25 @@
     kind: Namespace
     state: present
 
+# Déploiement du secret d'authentification
+- name: Copy Monitoring auth-secret manifest
+  copy:
+    src: '{{ role_path }}/files/auth-secret.yaml'
+    dest: /tmp/auth-secret.yaml
+
+- name: Apply Monitoring auth-secret
+  command: kubectl apply -f /tmp/auth-secret.yaml
+
+# Déploiement du middleware d'authentification
+- name: Copy Monitoring auth-middleware manifest
+  copy:
+    src: '{{ role_path }}/files/auth-middleware.yaml'
+    dest: /tmp/auth-middleware.yaml
+
+- name: Apply Monitoring auth-middleware
+  command: kubectl apply -f /tmp/auth-middleware.yaml
+
+
 - name: Create prometheus config
   kubernetes.core.k8s:
     definition:
@@ -207,6 +226,9 @@
         routes:
           - match: Host(`{{ domain_name }}`) && PathPrefix(`/prometheus`)  
             kind: Rule
+            middlewares:
+              - name: monitoring-auth
+                namespace: monitoring
             services:
               - name: prometheus-service
                 port: 9090
@@ -364,6 +386,21 @@
               "refresh": "5s"
             }
           }
+- name: Create Grafana PVC with Longhorn
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: grafana-longhorn-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 5Gi
 
 - name: Deploy grafana
   kubernetes.core.k8s:
@@ -434,7 +471,8 @@
                 configMap:
                   name: grafana-dashboard-node-exporter
               - name: grafana-storage
-                emptyDir: {}
+                persistentVolumeClaim:
+                  claimName: grafana-longhorn-pvc
 
 - name: Create grafana service
   kubernetes.core.k8s:
@@ -466,6 +504,9 @@
         routes:
           - match: Host(`{{ domain_name }}`) && PathPrefix(`/grafana`)
             kind: Rule
+            middlewares:
+              - name: monitoring-auth
+                namespace: monitoring
             services:
               - name: grafana-service
                 port: 3000

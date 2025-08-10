@@ -6,51 +6,11 @@
     name: docker-registry
     state: present
 
-- name: Créer un fichier de déploiement pour la registry
+- name: Copier le fichier de déploiement pour la registry
   copy:
+    src: deployment.yaml
     dest: /tmp/registry-deployment.yaml
-    content: |
-      apiVersion: v1
-      kind: Service
-      metadata:
-        name: docker-registry
-        namespace: docker-registry
-      spec:
-        selector:
-          app: docker-registry
-        ports:
-          - protocol: TCP
-            port: 5000
-            targetPort: 5000
-        type: NodePort
-      ---
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: docker-registry
-        namespace: docker-registry
-      spec:
-        replicas: 1
-        selector:
-          matchLabels:
-            app: docker-registry
-        template:
-          metadata:
-            labels:
-              app: docker-registry
-          spec:
-            containers:
-              - name: registry
-                image: registry:2
-                ports:
-                  - containerPort: 5000
-                volumeMounts:
-                  - name: registry-storage
-                    mountPath: /var/lib/registry
-            volumes:
-              - name: registry-storage
-                emptyDir: {}
-
+    
 - name: Appliquer le déploiement de la registry
   kubernetes.core.k8s:
     src: /tmp/registry-deployment.yaml
@@ -61,10 +21,8 @@
     dest: /etc/docker/daemon.json
     content: |
       {
-        "insecure-registries" : ["192.168.1.10:30000"]
+        "insecure-registries" : ["192.168.1.193:30530"]
       }
-
-
 
 - name: Vérifier le NodePort attribué à la registry
   shell: |
@@ -73,4 +31,15 @@
 
 - name: Afficher le port d'accès à la registry
   debug:
-    msg: "La registry est disponible sur http://192.168.1.10:{{ registry_nodeport.stdout }}"
+    msg: "La registry est disponible sur http://192.168.1.193:{{ registry_nodeport.stdout }}"
+
+- name: Copier le fichier daemonset.yaml sur la cible
+  copy:
+    src: daemonset.yaml
+    dest: /tmp/daemonset.yaml
+
+- name: Appliquer le DaemonSet
+  shell: |
+    kubectl apply -f /tmp/daemonset.yaml
+  args:
+    executable: /bin/bash

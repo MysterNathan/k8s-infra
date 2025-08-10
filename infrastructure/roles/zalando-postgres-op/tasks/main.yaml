@@ -1,0 +1,48 @@
+---
+- name: Créer le namespaces zalando-postgres-op
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: zalando-postgres-op
+    state: present
+
+- name: Copy Monitoring auth-secret manifest
+  copy:
+    src: '{{ role_path }}/files/auth-secret.yaml'
+    dest: /tmp/auth-secret.yaml
+
+- name: Copy values.yaml for Postres Operator 
+  copy:
+    src: "values.yaml"
+    dest: "/tmp/zalando-values.yaml"
+
+- name: Apply Zalando Postgres Operator auth-middleware
+  command: kubectl apply -f /tmp/auth-secret.yaml
+
+- name: Ajouter le repo Zalando Postgres Operator
+  command: helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
+
+- name: Installer Zalando Postgres Operator
+  command: helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator -n zalando-postgres-op -f /tmp/zalando-values.yaml 
+
+- name: Ajouter le repo Zalando Postgres Operator UI
+  command: helm repo add postgres-operator-ui-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator-ui
+
+- name: Installer Zalando Postgres Operator UI
+  command: helm upgrade --install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui -n zalando-postgres-op --set config.WATCHED_NAMESPACE="backend"
+
+- name: Copy Zalando Postgres Operator auth-middleware manifest
+  copy:
+    src: '{{ role_path }}/files/auth-middleware.yaml'
+    dest: /tmp/auth-middleware.yaml
+
+- name: Apply Monitoring auth-secret
+  command: kubectl apply -f /tmp/auth-middleware.yaml
+
+- name: Copier le manifest de l'IngressRoute pour Zalando Postgres Operator UI
+  copy:
+    src: "{{ role_path }}/files/ingressroute.yaml"
+    dest: /tmp/ingressroute.yaml
+
+- name: Appliquer le manifest de l'IngressRoute pour Zalando Postgres Operator UI
+  command: kubectl apply -f /tmp/ingressroute.yaml

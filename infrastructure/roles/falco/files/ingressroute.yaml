@@ -1,0 +1,59 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ingress-falco
+  namespace: falco
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`mysternathan.freeboxos.fr`) && PathPrefix(`/falco`)
+      kind: Rule
+      services:
+        - name: falco-falcosidekick-ui
+          port: 2802  
+      middlewares:
+        - name: falco-auth
+        - name: falco-rewrite
+
+  tls:
+    certResolver: letsencrypt
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-falco-prefix
+  namespace: falco
+spec:
+  stripPrefix:
+    prefixes:
+      - /falco
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: falco-auth
+  namespace: falco
+data:
+  users: YWRtaW46JGFwcjEkMDFLM05uZm0kZ1F3cG5adjJmd3Y5N2lsYWV3Uk02Lwo=
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: falco-auth
+  namespace: falco
+spec:
+  basicAuth:
+    secret: falco-auth
+
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: falco-rewrite
+  namespace: falco
+spec:
+  replacePathRegex:
+    regex: "^/falco/(.*)"
+    replacement: "/$1"

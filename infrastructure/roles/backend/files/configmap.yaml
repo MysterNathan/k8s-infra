@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: backend
+data:
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "portfolio_db"
+  DB_USER: "postgres"
+  JWT_SECRET: "d380a28402fb26efba42023fdac6a05869e7314f8b2facf1cb4a21cde3e05b3f604f33ef8e4f6853f48c91b8abcb6784c5aaa2712bdf94bab566bffba8f9f93e"
+  GIN_MODE: "release"
+  PORT: "8080"
+  DB_SSL_MODE: "disable" 

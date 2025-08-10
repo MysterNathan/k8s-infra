@@ -1,0 +1,2 @@
+config:
+  WATCHED_NAMESPACE: "backend"

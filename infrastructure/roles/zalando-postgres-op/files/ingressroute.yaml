@@ -1,0 +1,29 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: zalando-postgres-op
+  namespace: zalando-postgres-op
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`mysternathan.freeboxos.fr`) && PathPrefix(`/postgres-op`)
+      kind: Rule
+      services:
+        - name: postgres-operator-ui
+          port: 80
+      middlewares:
+        - name: strip-postgres-prefix
+        - name: zalando-postgres-op-auth
+  tls:
+    certResolver: letsencrypt
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-postgres-prefix
+  namespace: zalando-postgres-op
+spec:
+  stripPrefix:
+    prefixes:
+      - /postgres-op
