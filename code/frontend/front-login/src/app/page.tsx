@@ -7,7 +7,7 @@ import TechItem from "@/components/ui/TechItem";
 import HeroSection from '@/components/sections/HeroSection';
 
 const HomePage: React.FC = () => {
-  const { user } = useAuth();
+  useAuth();
 
   const techStack = [
     {
@@ -95,16 +95,14 @@ const HomePage: React.FC = () => {
       <div className="app-container">
 
         <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem 1rem' }}>
-          {/* Section présentation */}
           <HeroSection />
 
-          {/* Stack technique */}
           <Section>
             <h2 style={{ marginBottom: '0.5rem', color: 'var(--text-accent)' }}>
               Stack technique
             </h2>
             <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-              Kubernetes est mon terrain de jeu. Voici les outils que j'utilise au quotidien.
+              Kubernetes est mon terrain de jeu. Voici les outils que j&apos;utilise au quotidien.
             </p>
 
             <div style={{
@@ -125,7 +123,6 @@ const HomePage: React.FC = () => {
             </div>
           </Section>
 
-          {/* Section monitoring */}
           <Section>
             <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--text-accent)' }}>
               Monitoring

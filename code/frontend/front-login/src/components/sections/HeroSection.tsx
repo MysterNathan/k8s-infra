@@ -12,29 +12,29 @@ const HeroSection: React.FC = () => {
             <div className={styles.introCard}>
                 <div className={styles.introContent}>
                     <p className={styles.introText}>
-                        Je suis Nathan, 27 ans, Devops de son état, célibataire et libre comme l'air.
+                        Je suis Nathan, 27 ans, Devops de son état, célibataire et libre comme l&apos;air.
                         <br className={styles.desktopBreak} />
-                        Ce que j'aime: concevoir, déployer et opérer des plateformes fiables.
+                        Ce que j&apos;aime&nbsp;: concevoir, déployer et opérer des plateformes fiables.
                     </p>
 
                     <p className={styles.introText}>
-                        En ce moment Kubernetes est mon terrain de jeu: architecture de clusters,
+                        En ce moment Kubernetes est mon terrain de jeu&nbsp;: architecture de clusters,
                         automatisation, GitOps, CI/CD, observabilité et sécurité.
                     </p>
 
                     <p className={styles.introText}>
-                        Côté applicatif, j'utilise React et Go avec sobriété et je continue d'apprendre.
+                        Côté applicatif, j&apos;utilise React et Go avec sobriété et je continue d&apos;apprendre.
                         Ce portfolio met surtout en avant mes projets et bonnes pratiques autour de k8s.
                     </p>
 
                     <p className={styles.welcomeText}>
-                        Bonne visite ! 👋
+                        Bonne visite&nbsp;! 👋
                     </p>
                 </div>
             </div>
 
             <p className={styles.subtitle}>
-                Spécialiste de ne pas faire les choses jusqu'au bout - (Bientôt) Diplômé Bac+5
+                Spécialiste de ne pas faire les choses jusqu&apos;au bout - (Bientôt) Diplômé Bac+5
             </p>
         </Section>
     );
