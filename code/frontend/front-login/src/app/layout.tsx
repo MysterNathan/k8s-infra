@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
-import Header from '@/components/ui/Header';
-import Footer from '@/components/ui/Footer';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 
 export const metadata: Metadata = {
   title: 'Mon Portfolio - Système & Réseau',
