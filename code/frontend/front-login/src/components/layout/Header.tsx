@@ -57,7 +57,7 @@ const Header: React.FC = () => {
                 <div className={styles.headerRight}>
                     <nav className={styles.nav}>
                         <a href="#about" className={styles.navLink}>À propos</a>
-                        <Link href="/stack" className={styles.navLink}>Stack</Link>
+                        <Link href="/stacks" className={styles.navLink}>Stack</Link>
                         <a href="#monitoring" className={styles.navLink}>Monitoring</a>
                         <a href="#projects" className={styles.navLink}>Projets</a>
                     </nav>
@@ -141,7 +141,7 @@ const Header: React.FC = () => {
                             <span className={styles.mobileNavIcon}>👨‍💻</span>
                             À propos
                         </a>
-                        <Link href="/stack" className={styles.mobileNavLink} onClick={closeMobileMenu}>
+                        <Link href="/stacks" className={styles.mobileNavLink} onClick={closeMobileMenu}>
                             <span className={styles.mobileNavIcon}>⚡</span>
                             Stack
                         </Link>
