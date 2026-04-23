@@ -1,0 +1,5 @@
+jobs:
+  build:
+    runs-on: self-hosted  # 👈 Utilise ton runner Kubernetes
+    steps:
+      - uses: actions/checkout@v4
