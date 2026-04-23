@@ -1,2 +1,3 @@
----
-vault_github_token:
+github_runner_namespace: github-runners
+github_runner_replicas: 1
+github_runner_org: MysterNathan

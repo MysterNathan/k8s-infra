@@ -1,63 +1,11 @@
----
-
-- name: Create namespace for GitHub runner
+- name: Create namespace
   kubernetes.core.k8s:
-    name: "github-runner"
+    name: "{{ github_runner_namespace }}"
     api_version: v1
     kind: Namespace
     state: present
 
-- name: Create secret with GitHub token
+- name: Deploy runner
   kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: github-token
-        namespace: github-runner
-      type: Opaque
-      data:
-        token: "{{ {{ vault_github_token | default(ansible_env.GITHUB_TOKEN) }} | b64encode }}"
     state: present
-
-- name: Deploy GitHub Actions Runner
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: github-runner
-        namespace: github-runner
-      spec:
-        replicas: 1
-        selector:
-          matchLabels:
-            app: github-runner
-        template:
-          metadata:
-            labels:
-              app: github-runner
-          spec:
-            containers:
-            - name: runner
-              image: sumologic/kubernetes-tools-runner:latest
-              env:
-              - name: RUNNER_NAME
-                value: "k8s-runner"
-              - name: RUNNER_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: github-token
-                    key: token
-              - name: RUNNER_REPOSITORY_URL
-                value: "https://github.com/MysterNathan/vitrine"
-              - name: RUNNER_LABELS
-                value: "kubernetes,self-hosted"
-              resources:
-                requests:
-                  memory: "256Mi"
-                  cpu: "250m"
-                limits:
-                  memory: "512Mi"
-                  cpu: "500m"
-    state: present
+    template: runner.yaml.j2

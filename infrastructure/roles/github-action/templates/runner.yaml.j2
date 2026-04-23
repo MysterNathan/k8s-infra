@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-runner-secret
+  namespace: {{ github_runner_namespace }}
+type: Opaque
+stringData:
+  github_token: {{ github_token }}
+---
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: org-runner
+  namespace: {{ github_runner_namespace }}
+spec:
+  replicas: {{ github_runner_replicas }}
+  template:
+    spec:
+      organization: {{ github_runner_org }}   
+      labels:
+        - self-hosted
