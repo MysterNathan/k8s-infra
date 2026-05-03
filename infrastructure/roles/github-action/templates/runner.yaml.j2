@@ -1,21 +1,25 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: github-runner-secret
-  namespace: {{ github_runner_namespace }}
-type: Opaque
-stringData:
-  github_token: {{ github_token }}
----
+# templates/runner.yaml.j2
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: RunnerDeployment
 metadata:
-  name: org-runner
+  name: repo-runner
   namespace: {{ github_runner_namespace }}
 spec:
   replicas: {{ github_runner_replicas }}
   template:
     spec:
-      organization: {{ github_runner_org }}   
-      labels:
-        - self-hosted
+      repository: {{ github_runner_repo }}
+      serviceAccountName: github-runner-sa
+      initContainers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:debug
+          command: ["sh", "-c", "cp /kaniko/executor /tools/kaniko && cp -r /kaniko /tools/kaniko-dir"]
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
+      volumeMounts:
+        - name: tools
+          mountPath: /tools
+      volumes:
+        - name: tools
+          emptyDir: {}

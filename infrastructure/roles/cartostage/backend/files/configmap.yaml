@@ -1,0 +1,26 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: csback
+data:
+  POSTGRES_HOST: "postgres-cartostage"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "cartostage"
+  POSTGRES_USER: "cartostage"
+  POSTGRES_SSL_MODE: 'require'
+  GIN_MODE: "release"
+  PORT: "80"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: csback
+type: Opaque
+stringData:
+  JWT_SECRET: "{{ vault_jwt_secret }}"
+  POSTGRES_PASSWORD: "{{ vault_postgres_password }}"

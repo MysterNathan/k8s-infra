@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: containerd-registry-config
+  namespace: {{ github_runner_namespace }}
+data:
+  hosts.toml: |
+    server = "http://{{ registry_host }}"
+
+    [host."http://{{ registry_host }}"]
+      capabilities = ["pull", "resolve", "push"]
+      skip_verify = true
+      plain-http = true

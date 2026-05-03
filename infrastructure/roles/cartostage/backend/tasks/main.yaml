@@ -1,0 +1,57 @@
+---
+- name: Create CartoStage backend workspace
+  file:
+    path: "{{ workspace_path }}/cartostage"
+    state: directory
+    mode: '0755'
+
+- name: Create CartoStage backend namespaces if it doesnt exist
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: csback
+
+- name: Copy postgres Manifest
+  copy:
+    src: "postgres.yaml"
+    dest: "{{ workspace_path }}/cartostage/postgres.yaml"
+
+- name: Copy configmap Manifest
+  copy:
+    src: "configmap.yaml"
+    dest: "{{ workspace_path }}/cartostage/configmap.yaml"
+
+- name: Copy deployment Manifest
+  copy:
+    src: "deployment.yaml"
+    dest: "{{ workspace_path }}/cartostage/deployment.yaml"
+
+- name: Copy IngressRoute Manifest
+  copy:
+    src: "ingressroute.yaml"
+    dest: "{{ workspace_path }}/cartostage/ingressroute.yaml"
+
+
+- name: Déployer PostgreSQL d'abord
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/cartostage/postgres.yaml"
+
+- name: Déployer le configmap
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/cartostage/configmap.yaml"
+
+- name: Déployer le deployment
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/cartostage/deployment.yaml"
+    
+- name: Déployer l'ingressroute
+  shell: |
+    kubectl apply -f "{{ workspace_path }}/cartostage/ingressroute.yaml"
+
+- name: Supprimer le workspace backend
+  file:
+    path: "{{ workspace_path }}/cartostage"
+    state: absent

@@ -1,0 +1,46 @@
+- name: Add ARC Helm repository
+  kubernetes.core.helm_repository:
+    name: actions-runner-controller
+    repo_url: https://actions-runner-controller.github.io/actions-runner-controller
+
+- name: Install ARC via Helm
+  kubernetes.core.helm:
+    name: actions-runner-controller
+    chart_ref: actions-runner-controller/actions-runner-controller
+    release_namespace: actions-runner-system
+    create_namespace: true
+    wait: true
+    values:
+      authSecret:
+        create: true
+        github_token: "{{ github_token }}"
+
+      # Permettre au runner de monter des volumes système
+      runner:
+        securityContext:
+          privileged: false
+
+
+- name: Wait for ARC controller pod to be ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: actions-runner-system
+    label_selectors:
+      - app.kubernetes.io/name=actions-runner-controller
+  register: arc_pods
+  until: >
+    arc_pods.resources | length > 0 and
+    arc_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length ==
+    arc_pods.resources | length
+  retries: 20
+  delay: 15
+
+- name: Wait for webhook service to be ready
+  kubernetes.core.k8s_info:
+    kind: Service
+    name: actions-runner-controller-webhook
+    namespace: actions-runner-system
+  register: webhook_svc
+  until: webhook_svc.resources | length > 0
+  retries: 10
+  delay: 15

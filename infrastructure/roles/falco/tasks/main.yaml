@@ -4,13 +4,16 @@
 - name: "Mettre à jour les repos Helm"
   command: helm repo update
 
-#- name: "Installer falco"
-#  command: >
-#    helm upgrade --install falco
-#    --namespace falco
-#    --create-namespace
-#    --set tty=true
-#    falcosecurity/falco
+- name: "Installer falco"
+  command: >
+    helm upgrade --install falco
+    --namespace falco
+    --create-namespace
+    --set tty=true
+    falcosecurity/falco
+    --set falcosidekick.enabled=true  
+    --set falcosidekick.webui.enabled=true   
+    --set falcosidekick.webui.user="admin:admin"
 
 - name: "Créer le dossier des règles personnalisées de Falco"
   file:

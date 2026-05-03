@@ -14,13 +14,6 @@
   ansible.builtin.command: helm repo update
   changed_when: false
 
-- name: Create Traefik namespace
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Namespace
-    name: traefik
-    state: present
-
 - name: Load values.yaml content
   copy:
     content: "{{ lookup('file', 'values.yaml') }}"

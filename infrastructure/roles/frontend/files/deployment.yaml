@@ -40,7 +40,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: 192.168.1.193:31498/front-login-frontend:latest
+        image: 192.168.1.193:30345/front-login-frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -126,7 +126,7 @@ spec:
     spec:
       containers:
       - name: frontend-carolina
-        image: 192.168.1.193:31498/front-carolina:latest
+        image: 192.168.1.193:30345/front-carolina:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80

@@ -1,11 +1,8 @@
-- name: Create namespace
-  kubernetes.core.k8s:
-    name: "{{ github_runner_namespace }}"
-    api_version: v1
-    kind: Namespace
-    state: present
+- name: Install cert-manager
+  import_tasks: cert-manager.yaml
+
+- name: Install ARC
+  import_tasks: arc.yaml
 
 - name: Deploy runner
-  kubernetes.core.k8s:
-    state: present
-    template: runner.yaml.j2
+  import_tasks: runner.yaml

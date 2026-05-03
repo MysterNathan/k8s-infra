@@ -1,0 +1,120 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-cartostage-prefix
+  namespace: csback
+spec:
+  stripPrefix:
+    prefixes:
+      - /cartostage
+
+---
+
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: auth-ingress
+  namespace: csback
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - match: Host(`mysternathan.freeboxos.fr`) && (PathPrefix(`/cartostage/api/login`) || PathPrefix(`/cartostage/api/health`))
+    kind: Rule
+    middlewares:
+    - name: strip-cartostage-prefix
+    services:
+    - name: auth-service
+      port: 80
+  tls:
+    certResolver: letsencrypt
+
+---
+
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: stage-ingress
+  namespace: csback
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - match: Host(`mysternathan.freeboxos.fr`) && (PathPrefix(`/cartostage/api/stages`) || PathPrefix(`/cartostage/api/filieres`))
+    kind: Rule
+    middlewares:
+    - name: strip-cartostage-prefix
+    services:
+    - name: stage-service
+      port: 80
+  tls:
+    certResolver: letsencrypt
+
+---
+
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: enterprise-ingress
+  namespace: csback
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - match: Host(`mysternathan.freeboxos.fr`) && (PathPrefix(`/cartostage/api/enterprises`) || PathPrefix(`/cartostage/api/tutors`))
+    kind: Rule
+    middlewares:
+    - name: strip-cartostage-prefix
+    services:
+    - name: enterprise-service
+      port: 80
+  tls:
+    certResolver: letsencrypt
+
+---
+
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: student-ingress
+  namespace: csback
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - match: Host(`mysternathan.freeboxos.fr`) && PathPrefix(`/cartostage/api/student`)
+    kind: Rule
+    middlewares:
+    - name: strip-cartostage-prefix
+    services:
+    - name: student-service
+      port: 80
+  tls:
+    certResolver: letsencrypt
+
+---
+
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: teacher-ingress
+  namespace: csback
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - match: Host(`mysternathan.freeboxos.fr`) && PathPrefix(`/cartostage/api/teacher`)
+    kind: Rule
+    middlewares:
+    - name: strip-cartostage-prefix
+    services:
+    - name: teacher-service
+      port: 80
+  tls:
+    certResolver: letsencrypt

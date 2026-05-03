@@ -88,7 +88,7 @@ const StackSection: React.FC<StackSection> = ({
                                 <div className={styles.detailCard}>
                                     <h4 className={styles.detailTitle}>
                                         <span className={styles.detailIcon}>🎯</span>
-                                        Cas d'usage
+                                        Cas d&apos;usage
                                     </h4>
                                     <ul className={styles.detailList}>
                                         {useCases.map((useCase, index) => (

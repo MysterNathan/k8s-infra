@@ -6,40 +6,43 @@
     name: docker-registry
     state: present
 
+- name: Créer le secret htpasswd pour la registry
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: registry-htpasswd
+        namespace: docker-registry
+      type: Opaque
+      stringData:
+        htpasswd: "{{ registry_htpasswd_password }}"
+
 - name: Copier le fichier de déploiement pour la registry
   copy:
     src: deployment.yaml
     dest: /tmp/registry-deployment.yaml
-    
+
+- name: Creer le secret docker-registry pour la registry
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: registry-credentials
+        namespace: "{{ item }}"
+      type: kubernetes.io/dockerconfigjson
+      data:
+        .dockerconfigjson: "{{ {'auths': {'mysternathan.freeboxos.fr': {'username': registry_user, 'password': registry_password, 'auth': (registry_user + ':' + registry_password) | b64encode}}} | to_json | b64encode }}"
+  loop:
+    - csback
+    - csfront
+
+
 - name: Appliquer le déploiement de la registry
   kubernetes.core.k8s:
     src: /tmp/registry-deployment.yaml
     state: present
 
-- name: Configurer le fichier daemon.json pour activer l'insecure registry
-  copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "insecure-registries" : ["192.168.1.193:30530"]
-      }
-
-- name: Vérifier le NodePort attribué à la registry
-  shell: |
-    kubectl get svc docker-registry -n docker-registry -o jsonpath='{.spec.ports[0].nodePort}'
-  register: registry_nodeport
-
-- name: Afficher le port d'accès à la registry
-  debug:
-    msg: "La registry est disponible sur http://192.168.1.193:{{ registry_nodeport.stdout }}"
-
-- name: Copier le fichier daemonset.yaml sur la cible
-  copy:
-    src: daemonset.yaml
-    dest: /tmp/daemonset.yaml
-
-- name: Appliquer le DaemonSet
-  shell: |
-    kubectl apply -f /tmp/daemonset.yaml
-  args:
-    executable: /bin/bash

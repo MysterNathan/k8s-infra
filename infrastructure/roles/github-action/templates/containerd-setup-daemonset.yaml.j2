@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: containerd-registry-setup
+  namespace: {{ github_runner_namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: containerd-registry-setup
+  template:
+    metadata:
+      labels:
+        app: containerd-registry-setup
+    spec:
+      hostPID: true
+      hostNetwork: true
+      
+      initContainers:
+        - name: setup-registry
+          image: busybox
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              # Créer le répertoire de configuration pour la registry
+              mkdir -p /host/etc/containerd/certs.d/{{ registry_host }}
+              
+              # Créer le fichier hosts.toml
+              cat > /host/etc/containerd/certs.d/{{ registry_host }}/hosts.toml << EOF
+              server = "http://{{ registry_host }}"
+
+              [host."http://{{ registry_host }}"]
+                capabilities = ["pull", "resolve", "push"]
+                skip_verify = true
+                plain-http = true
+              EOF
+              
+              echo "Configuration appliquée avec succès"
+          volumeMounts:
+            - name: host-etc
+              mountPath: /host/etc
+              
+      containers:
+        - name: pause
+          image: gcr.io/google_containers/pause:3.1
+          resources:
+            limits:
+              cpu: "10m"
+              memory: "10Mi"
+              
+      volumes:
+        - name: host-etc
+          hostPath:
+            path: /etc
+            type: Directory
+            
+      tolerations:
+        - operator: Exists
