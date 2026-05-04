@@ -1,6 +1,7 @@
 - name: Installing APT requirered packages
   ansible.builtin.apt:
     name:
+    - ethtool
     - apt-transport-https
     - ca-certificates
     - curl
@@ -108,6 +109,12 @@
     url: "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz"
     dest: "/tmp/cni-plugins.tgz"
     mode: '0644'
+
+- name: Create CNI bin directory  
+  ansible.builtin.file:
+    path: /opt/cni/bin
+    state: directory
+    mode: '0755'
 
 - name: Extract CNI plugins
   ansible.builtin.unarchive:

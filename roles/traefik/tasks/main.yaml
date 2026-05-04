@@ -14,13 +14,6 @@
   ansible.builtin.command: helm repo update
   changed_when: false
 
-- name: Create Traefik namespace
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Namespace
-    name: traefik
-    state: present
-
 - name: Load values.yaml content
   copy:
     content: "{{ lookup('file', 'values.yaml') }}"
@@ -80,3 +73,30 @@
 - name: Display Traefik pods
   ansible.builtin.debug:
     var: traefik_pods.stdout_lines
+
+# Déploiement du secret d'authentification
+- name: Copy Traefik auth-secret manifest
+  copy:
+    src: '{{ role_path }}/files/auth-secret.yaml'
+    dest: /tmp/auth-secret.yaml
+
+- name: Apply Traefik auth-secret
+  command: kubectl apply -f /tmp/auth-secret.yaml
+
+# Déploiement du middleware d'authentification
+- name: Copy Traefik auth-middleware manifest
+  copy:
+    src: '{{ role_path }}/files/auth-middleware.yaml'
+    dest: /tmp/auth-middleware.yaml
+
+- name: Apply Traefik auth-middleware
+  command: kubectl apply -f /tmp/auth-middleware.yaml
+
+
+- name: Copy Traefik ingressroute manifest
+  copy:
+    src: '{{ role_path }}/files/ingressroute.yaml'
+    dest: /tmp/traefikingressroute.yaml
+
+- name: Expose Traefik dashboard
+  command: kubectl apply -f /tmp/traefikingressroute.yaml

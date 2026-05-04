@@ -4,7 +4,7 @@
   register: node_status
   changed_when: false
   failed_when: false
-  delegate_to: "{{ groups['master'][0] }}" 
+  delegate_to: "{{ groups['masters'][0] }}" 
 
 - name: Set fact about node status
   set_fact:
@@ -12,7 +12,7 @@
 
 - name: Copy kubeadm join script from control node
   copy:
-    src: "/home/etna/Quantum_Motors/file/kubeadm/kubeadm_join.sh"
+    src: "/home/nathan/kubernets/files/kubeadm_join.sh"
     dest: /tmp/kubeadm_join.sh
     mode: '0755'
   when: not node_already_joined

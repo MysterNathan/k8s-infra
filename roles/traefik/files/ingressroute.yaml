@@ -5,10 +5,15 @@ metadata:
   namespace: traefik
 spec:
   entryPoints:
-    - web  
+    - websecure
   routes:
-    - match: Host(`traefik.etna.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+    - match: Host(`mysternathan.freeboxos.fr`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
       kind: Rule
+      middlewares:
+        - name: traefik-dashboard-auth
+          namespace: traefik
       services:
         - name: api@internal
           kind: TraefikService
+  tls:
+    certResolver: letsencrypt

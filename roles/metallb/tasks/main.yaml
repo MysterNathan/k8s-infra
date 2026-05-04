@@ -51,15 +51,7 @@
   register: values_file
 
 - name: Installer MetalLB avec Helm
-  kubernetes.core.helm:
-    name: metallb
-    chart_ref: metallb/metallb
-#   chart_version: "{{ metallb_chart_version }}"
-    release_namespace: "{{ metallb_namespace }}"
-    create_namespace: true
-    values_files:
-      - /tmp/metallb-values.yaml
-    wait: true
+  command: helm upgrade --install metallb metallb/metallb -n metallb-system -f /tmp/metallb-values.yaml
 
 - name: Attendre que les pods MetalLB soient prêts
   shell: kubectl wait --for=condition=Ready pods --all -n {{ metallb_namespace }} --timeout=180s
