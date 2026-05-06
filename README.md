@@ -1,7 +1,7 @@
 
 # k8s-homelab-infra
 
-Déploiement automatisé d'un cluster Kubernetes on-premise via Ansible, hébergeant l'application [CartoStage](https://github.com/ton-repo/cartostage) ainsi qu'une stack d'observabilité et de sécurité complète.
+Déploiement automatisé d'un cluster Kubernetes on-premise via Ansible, hébergeant l'application [CartoStage](https://github.com/MysterNathan/cartostage) ainsi qu'une stack d'observabilité et de sécurité complète.
 
 > Ce projet a pour objectif de simuler un environnement de production réaliste sur infrastructure bare-metal, en mettant en œuvre les bonnes pratiques DevOps/Kubernetes sans recourir à un cloud provider.
 
@@ -119,7 +119,7 @@ ansible-playbook -i inventory.ini ./playbooks/infrastructure.yaml -b --ask-becom
 
 ## Application hébergée
 
-Ce cluster héberge **[CartoStage](https://github.com/MysterNathan/cartostagenc)**, une application de cartographie interactive des offres de stage, développée en **Next.js** et **Go**.
+Ce cluster héberge **[CartoStage](https://github.com/MysterNathan/cartostage)**, une application de cartographie interactive des offres de stage, développée en **Next.js** et **Go**.
 
 ----------
 
