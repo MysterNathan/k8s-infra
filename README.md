@@ -13,7 +13,7 @@ Le cluster est hébergé sur un serveur physique unique virtualisé via **Proxmo
 
 | Rôle   | Hostname       | vCores | RAM   | Disque |
 |--------|----------------|--------|-------|--------|
-| Master | `vitrine-0`    | 4      | 8 GB  | 100 GB |
+| Master | `kubernetes-0`    | 4      | 8 GB  | 100 GB |
 | Worker | `kubernetes-1` | 4      | 20 GB | 100 GB |
 | Worker | `kubernetes-2` | 4      | 20 GB | 100 GB |
 
